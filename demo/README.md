@@ -9,10 +9,10 @@
   + 使用完毕以后记得去掉代理
 
 ## 反向代理
-+ [模拟服务器](proxy/real_server/main.go)
++ [模拟服务器](proxy/0_real_server/main.go)
   + 主要启动两个服务，获取请求path和addr,用来测试反向代理
 
-+ [反向代理reverse_proxy_base](proxy/reverse_proxy_base/main.go)
++ [反向代理reverse_proxy_base](proxy/1_reverse_proxy_base/main.go)
   + 反向代理的核心知识点为：解析代理地址，并更改请求体的协议和主机
 
 
@@ -73,7 +73,7 @@ fmt.Println(req.Host)
 
 #### 简单代理转发
 
-+ [http代理](proxy/reverse_proxy_simple/main.go)
++ [http代理](proxy/2_reverse_proxy_simple/main.go)
   + 主要通过官方ReverseProxy实现http转发代理的流程，流程很简单
   + 在启动realserver以后，然后启动本http代理
 
@@ -101,7 +101,79 @@ log.Fatal(http.ListenAndServe(addr, proxy))
 
 #### 更改支持内容
 
++ [通过reverseproxy更改内容](proxy/3_reverse_proxy/main.go)
 
+本小结主要通过net/http/httputil/reverseproxy.go提供的接口实现
 
-
+```go
+type ReverseProxy struct {
+	//控制器,是一个函数，函数可以修改请求体内容
+	Director func(*http.Request)
+	//连接池，如果没有申明，则会使用默认的
+	Transport http.RoundTripper
+	//刷新到客户端的刷新间隔效率
+	FlushInterval time.Duration
+	//错误记录器
+	ErrorLog *log.Logger
+	//定义缓冲池，在复制http相应时使用，用以提高请求效率
+	BufferPool BufferPool
+	//修改请求结果
+	ModifyResponse func(*http.Response) error
+	//错误处理回调函数，如果为nil，则遇到错误会显示502
+	ErrorHandler func(http.ResponseWriter, *http.Request, error)
+}
+```
  
+基于已经有的`NewSingleHostReverseProxy`添加修改返回的响应`modifyResponseFunc`
+
+```go
+
+func NewSingleHostReverseProxy(target *url.URL) *httputil.ReverseProxy {
+	//请求为"http://127.0.0.1:2003/base?name=oliver"
+	//RawQuery: name=oliver
+	//Scheme: http
+	//path: /base
+	//host: 127.0.0.1:2003
+	targetQuery := target.RawQuery
+	//创建一个director方法，这里修改的是请求前的内容
+	director := func(req *http.Request) {
+		req.URL.Scheme = target.Scheme
+		req.URL.Host = target.Host
+		//这里实际请求的地址会在target后面加上原始请求的path
+		req.URL.Path, req.URL.RawPath = joinURLPath(target, req.URL)
+		if targetQuery == "" || req.URL.RawQuery == "" {
+			req.URL.RawQuery = targetQuery + req.URL.RawQuery
+		} else {
+			req.URL.RawQuery = targetQuery + "&" + req.URL.RawQuery
+		}
+		if _, ok := req.Header["User-Agent"]; !ok {
+			// explicitly disable User-Agent so it's not set to default value
+			req.Header.Set("User-Agent", "")
+		}
+	}
+
+	//官方没有实现支持修改返回内容，但是预留了接口
+	modifyResponseFunc := func(res *http.Response) error {
+		//关键内容，将原始的响应取出先，然后修改，最终写回到
+		oldPayload, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+		//修改返回体
+		newPlayload := []byte("hello " + string(oldPayload))
+		//将内容写回到body
+		res.Body = ioutil.NopCloser(bytes.NewBuffer(newPlayload))
+		//修改最终的内容长度
+		res.ContentLength = int64(len(newPlayload))
+		//同时设置头里面的Content-Length
+		res.Header.Set("Content-Length", fmt.Sprint(res.ContentLength))
+		return nil
+	}
+
+	//将具体这俩步骤，请求体修改，响应修改传入
+	return &httputil.ReverseProxy{
+		Director:       director,
+		ModifyResponse: modifyResponseFunc,
+	}
+}
+```

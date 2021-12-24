@@ -16,7 +16,7 @@ func main() {
 	if e1 != nil {
 		log.Println(e1)
 	}
-
+	//这里其实是NewSingleHostReverseProxy将请求内容目标地址进行更改
 	proxy := httputil.NewSingleHostReverseProxy(u1)
 	log.Println("starting httpserver at ", addr)
 	log.Fatal(http.ListenAndServe(addr, proxy))
