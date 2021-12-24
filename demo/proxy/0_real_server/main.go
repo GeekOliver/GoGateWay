@@ -18,7 +18,12 @@ type RealServer struct {
 func (r *RealServer) HelloHandler(w http.ResponseWriter, req *http.Request) {
 	upath := fmt.Sprintf("http://%s%s\n", r.Addr, req.URL.Path)
 	log.Println(upath)
+	realIP := fmt.Sprintf("RemoteAddr=%s,X-Forwarded-For=%v,X-Real-IP=%v\n",
+		req.RemoteAddr,
+		req.Header.Get("X-Forwarded-For"),
+		req.Header.Get("X-Real-IP"))
 	io.WriteString(w, upath)
+	io.WriteString(w, realIP)
 }
 
 func (r *RealServer) ErrorHandler(w http.ResponseWriter, req *http.Request) {

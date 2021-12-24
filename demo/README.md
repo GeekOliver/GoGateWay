@@ -54,6 +54,111 @@ fmt.Println(req.Host)
 
 ## http代理
 
+
+### header基础知识
+
+
+#### Connection
+
+
+Connection是用来表示请求发起方(客户端)与第一代理（网关）的状态，一共有如下几个值
+
++ keep-alive不关闭网络（浏览器）
++ close关闭网络（curl）
++ Upgrade协议升级（http2，websocket）
+
+#### TE
+
+指的是request_header，表示希望使用的传输编码类型
+
+```html
+TE:trailers, deflate;1=0.5
+```
+
+该例子表示期望在采用分块传输编码响应中接收挂载字段，zlib编码，0.5优先级排序
+
+#### Trailer
+
+指的是response header, 允许发送方在消息后面添加额外的元信息
+
+```html
+Trailer: Expires
+```
+
+表示Expires将出现在分块信息的结尾
+
+
+### 第一代理去除标准的逐段传输头(hop-by-hop)
+
++ 逐段传输头都需要在Connection头中列出
++ 第一代理必须处理(如协议升级)他们且不转发它
++ 逐段传输头有如下所示
+  + Keep-Alive
+  + Transfer-Encoding
+  + TE
+  + Connection
+  + Trailer
+  + Upgrade
+  + Proxy-Authorization
+  + Proxy-Authenticate
+
+
+### 特殊的状态码
+
+
+#### 100
+表示目前一切正常，客户端可以继续请求
+
+客户端要post的数据大于1024字节的时候会出现。
+
+同时客户端不会直接就发起POST请求，而是会分为两步
+- 1.发送一个请求，包含Expect:100-continue，询问Server使用愿意接收数据
+- 2.接收到Server返回的100-continue应答以后，返回100状态，客户端才把数据post给Server
+
+
+#### 101
+
+服务端发送给客户端升级协议的请求 
+
+
+![image-20211224233043966](https://image.geekoliver.com/202112242330065.png)
+
+
+### 特殊的Header头
+
+#### X-Forwarded-For
+
+客户端反向代理的ip
+
++ 记录最后直连实际服务器之前，整个代理过程
++ 可能会被伪造
+
+
+![image-20211224234531578](https://image.geekoliver.com/202112242345654.png)
+
+
+#### X-Real-IP
+
++ 请求实际服务器的客户端ip
++ 每过一层代理都会被覆盖掉，只需第一代理设置转发
++ 不会被伪造
+
+
+![image-20211224234625344](https://image.geekoliver.com/202112242346424.png)
+
+#### Connection
+
+标记请求网络状态，长连接、关闭、还是协议升级等
+
+
+#### TE
+
+
+#### Trailer
+
+
+
+
 ### ReverseProxy基础知识
 
 + 基于官方ReverseProxy(net/http/httputil)实现一个http代理
@@ -176,4 +281,19 @@ func NewSingleHostReverseProxy(target *url.URL) *httputil.ReverseProxy {
 		ModifyResponse: modifyResponseFunc,
 	}
 }
+```
+
+这里有一个很重要的点就是在修改完body以后写回去的时候
++ 使用`ioutil.NopCloser(bytes.NewBuffer()`方法写回
++ 然后修改内容长度需要分别设置res的`ContentLength和header`中的`Content-Length`
+
+```go
+//修改返回体
+newPlayload := []byte("hello " + string(oldPayload))
+//将内容写回到body
+res.Body = ioutil.NopCloser(bytes.NewBuffer(newPlayload))
+//修改最终的内容长度
+res.ContentLength = int64(len(newPlayload))
+//同时设置头里面的Content-Length
+res.Header.Set("Content-Length", fmt.Sprint(res.ContentLength))
 ```

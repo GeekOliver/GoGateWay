@@ -11,11 +11,11 @@ import (
 	"strings"
 )
 
-var addr = "127.0.0.1:2002"
+var addr = "127.0.0.1:2005"
 
 func main() {
 	//转发地址
-	rs1 := "http://127.0.0.1:2003/base"
+	rs1 := "http://127.0.0.1:2002"
 	u1, e1 := url.Parse(rs1)
 	if e1 != nil {
 		log.Println(e1)
@@ -48,6 +48,7 @@ func NewSingleHostReverseProxy(target *url.URL) *httputil.ReverseProxy {
 			// explicitly disable User-Agent so it's not set to default value
 			req.Header.Set("User-Agent", "")
 		}
+		req.Header.Set("X-Real-IP", req.RemoteAddr)
 	}
 
 	//官方没有实现支持修改返回内容，但是预留了接口
