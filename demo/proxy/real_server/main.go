@@ -17,11 +17,13 @@ type RealServer struct {
 
 func (r *RealServer) HelloHandler(w http.ResponseWriter, req *http.Request) {
 	upath := fmt.Sprintf("http://%s%s\n", r.Addr, req.URL.Path)
+	log.Println(upath)
 	io.WriteString(w, upath)
 }
 
 func (r *RealServer) ErrorHandler(w http.ResponseWriter, req *http.Request) {
 	upath := "error handler"
+	log.Println(upath)
 	w.WriteHeader(500)
 	io.WriteString(w, upath)
 }
