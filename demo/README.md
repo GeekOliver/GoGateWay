@@ -1,9 +1,6 @@
-> demo
->
-> [toc]
 
 
-[TOC]
+
 
 ## 浏览器代理
 
@@ -303,4 +300,23 @@ res.ContentLength = int64(len(newPlayload))
 res.Header.Set("Content-Length", fmt.Sprint(res.ContentLength))
 ```
 
-##
+## 四大负载均衡策略
+
+
+
+### 随机负载
+
+随机挑选目标服务器ip
+
+### 轮询负载
+
+按序循环
+
+### 加权轮询负载
+
+给目标设置访问权重，按照权重轮询
+
+### 一致性hash负载
+
+请求固定URL访问指定IP
+
