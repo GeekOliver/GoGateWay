@@ -1,4 +1,9 @@
 > demo
+>
+> [toc]
+
+
+[TOC]
 
 ## 浏览器代理
 
@@ -228,7 +233,7 @@ type ReverseProxy struct {
 	ErrorHandler func(http.ResponseWriter, *http.Request, error)
 }
 ```
- 
+
 基于已经有的`NewSingleHostReverseProxy`添加修改返回的响应`modifyResponseFunc`
 
 ```go
@@ -297,3 +302,5 @@ res.ContentLength = int64(len(newPlayload))
 //同时设置头里面的Content-Length
 res.Header.Set("Content-Length", fmt.Sprint(res.ContentLength))
 ```
+
+##
